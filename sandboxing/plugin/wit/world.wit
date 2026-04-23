@@ -1,0 +1,9 @@
+package example:plugin;
+
+interface policy {
+    check-key: func(json: string, key: string) -> string;
+}
+
+world plugin {
+    export policy;
+}
