@@ -4,48 +4,6 @@
 
 This sandboxing framework provides a secure execution environment for plugins using WebAssembly Component Model (WASM-P2). It enforces file system access policies and isolates plugin execution from the host system.
 
-## Architecture Diagram
-
-```mermaid
-graph TB
-    subgraph "Host System"
-        A[Main Application<br/>src/main.rs] --> B[Policy Loader<br/>policy_loader.rs]
-        B --> C[YAML Policy Config<br/>config/policy.yaml]
-        A --> D[Wasmtime Engine]
-        D --> E[WASI Context]
-        E --> F[Resource Table]
-    end
-    
-    subgraph "Sandbox Boundary"
-        D --> G[WASM Component<br/>plugin.wasm]
-    end
-    
-    subgraph "Plugin"
-        G --> H[Plugin Implementation<br/>plugin/src/lib.rs]
-        H --> I[WIT Interface<br/>world.wit]
-    end
-    
-    subgraph "Allowed Resources"
-        E -.->|Controlled Access| J[./data Directory]
-        J --> K[sample.txt]
-        J --> L[output.txt]
-    end
-    
-    subgraph "Blocked Resources"
-        M[../secret.txt]
-        N[/etc/passwd]
-    end
-    
-    E -.->|Access Denied| M
-    E -.->|Access Denied| N
-    
-    style G fill:#e1f5ff
-    style E fill:#fff4e1
-    style J fill:#e8f5e9
-    style M fill:#ffebee
-    style N fill:#ffebee
-```
-
 ## System Flow
 
 ```mermaid
