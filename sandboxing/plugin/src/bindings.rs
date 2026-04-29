@@ -47,8 +47,47 @@ pub mod exports {
                         .cast::<usize>();
                     _rt::cabi_dealloc(l0, l1, 1);
                 }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_create_file_cabi<T: Guest>(
+                    arg0: *mut u8,
+                    arg1: usize,
+                    arg2: *mut u8,
+                    arg3: usize,
+                ) -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let len0 = arg1;
+                    let bytes0 = _rt::Vec::from_raw_parts(arg0.cast(), len0, len0);
+                    let len1 = arg3;
+                    let bytes1 = _rt::Vec::from_raw_parts(arg2.cast(), len1, len1);
+                    let result2 = T::create_file(
+                        _rt::string_lift(bytes0),
+                        _rt::string_lift(bytes1),
+                    );
+                    let ptr3 = (&raw mut _RET_AREA.0).cast::<u8>();
+                    let vec4 = (result2.into_bytes()).into_boxed_slice();
+                    let ptr4 = vec4.as_ptr().cast::<u8>();
+                    let len4 = vec4.len();
+                    ::core::mem::forget(vec4);
+                    *ptr3.add(::core::mem::size_of::<*const u8>()).cast::<usize>() = len4;
+                    *ptr3.add(0).cast::<*mut u8>() = ptr4.cast_mut();
+                    ptr3
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn __post_return_create_file<T: Guest>(arg0: *mut u8) {
+                    let l0 = *arg0.add(0).cast::<*mut u8>();
+                    let l1 = *arg0
+                        .add(::core::mem::size_of::<*const u8>())
+                        .cast::<usize>();
+                    _rt::cabi_dealloc(l0, l1, 1);
+                }
                 pub trait Guest {
                     fn check_key(json: _rt::String, key: _rt::String) -> _rt::String;
+                    fn create_file(
+                        filename: _rt::String,
+                        content: _rt::String,
+                    ) -> _rt::String;
                 }
                 #[doc(hidden)]
                 macro_rules! __export_example_plugin_policy_cabi {
@@ -62,6 +101,14 @@ pub mod exports {
                         "cabi_post_example:plugin/policy#check-key")] unsafe extern "C"
                         fn _post_return_check_key(arg0 : * mut u8,) { unsafe {
                         $($path_to_types)*:: __post_return_check_key::<$ty > (arg0) } }
+                        #[unsafe (export_name = "example:plugin/policy#create-file")]
+                        unsafe extern "C" fn export_create_file(arg0 : * mut u8, arg1 :
+                        usize, arg2 : * mut u8, arg3 : usize,) -> * mut u8 { unsafe {
+                        $($path_to_types)*:: _export_create_file_cabi::<$ty > (arg0,
+                        arg1, arg2, arg3) } } #[unsafe (export_name =
+                        "cabi_post_example:plugin/policy#create-file")] unsafe extern "C"
+                        fn _post_return_create_file(arg0 : * mut u8,) { unsafe {
+                        $($path_to_types)*:: __post_return_create_file::<$ty > (arg0) } }
                         };
                     };
                 }
@@ -144,12 +191,13 @@ pub(crate) use __export_plugin_impl as export;
 )]
 #[doc(hidden)]
 #[allow(clippy::octal_escapes)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 215] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07[\x01A\x02\x01A\x02\x01\
-B\x02\x01@\x02\x04jsons\x03keys\0s\x04\0\x09check-key\x01\0\x04\0\x15example:plu\
-gin/policy\x05\0\x04\0\x15example:plugin/plugin\x04\0\x0b\x0c\x01\0\x06plugin\x03\
-\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-\
-bindgen-rust\x060.41.0";
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 256] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\x83\x01\x01A\x02\x01\
+A\x02\x01B\x04\x01@\x02\x04jsons\x03keys\0s\x04\0\x09check-key\x01\0\x01@\x02\x08\
+filenames\x07contents\0s\x04\0\x0bcreate-file\x01\x01\x04\0\x15example:plugin/po\
+licy\x05\0\x04\0\x15example:plugin/plugin\x04\0\x0b\x0c\x01\0\x06plugin\x03\0\0\0\
+G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070.227.1\x10wit-bindge\
+n-rust\x060.41.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

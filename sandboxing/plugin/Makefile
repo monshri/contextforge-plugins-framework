@@ -18,17 +18,15 @@ build:
 # Clean all build artifacts
 clean:
 	cargo clean
-	cd plugin && cargo clean
 
 # Check both projects
 check:
 	cargo check
-	cd plugin && cargo check --target wasm32-wasip2
+	cargo check --target wasm32-wasip2
 
 # Run tests
 test:
 	cargo test
-	cd plugin && cargo test
 
 # Show build info
 info:

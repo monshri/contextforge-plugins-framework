@@ -2,7 +2,9 @@ package example:plugin;
 
 interface policy {
     check-key: func(json: string, key: string) -> string;
+    create-file: func(filename: string, content: string) -> string;
 }
+
 
 world plugin {
     export policy;

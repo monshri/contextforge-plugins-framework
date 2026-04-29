@@ -1,4 +1,5 @@
 use wit_bindgen::generate;
+use std::fs;
 
 generate!({
     world: "plugin",
@@ -16,6 +17,15 @@ impl Guest for Component {
             _ => "allow".to_string(),
         }
     }
+
+    fn create_file(filename: String, content: String) -> String {
+        match fs::write(&filename, content) {
+            Ok(_) => format!("Success: Created file {}", filename),
+            Err(e) => format!("Error: {}", e),
+        }
+    }
 }
+
+
 
 export!(Component);
