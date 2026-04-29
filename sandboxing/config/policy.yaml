@@ -1,0 +1,13 @@
+plugin:
+  name: "samplePlugin"
+  sandbox:
+    type: "wasm"
+    wasm_version: "p2"
+    policy:
+      files:
+        input: 
+          file: ["data/sample.txt"]
+          permission: ["read"]
+        output:
+          file: ["output/out.txt"]
+          permission: ["write"]
