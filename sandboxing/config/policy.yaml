@@ -64,5 +64,21 @@ plugin:
         min_resolution_ns: 1000000      # Minimum 1ms resolution (reduces timing precision)
         max_queries_per_second: 10000   # Rate limit: 10k queries/sec
         time_offset_seconds: null       # No time offset (null = use real time)
+      
+      # Resource limits for CPU, memory, and execution time
+      resource_limits:
+        # Maximum memory in bytes (e.g., 128MB = 134217728 bytes)
+        # null means no limit
+        max_memory_bytes: 134217728
+        # CPU execution timeout in milliseconds
+        # This uses Wasmtime's fuel metering to limit CPU instructions
+        cpu_timeout_ms: 5000
+        # Wall clock timeout in milliseconds
+        # Maximum real-world time the plugin can run
+        wall_clock_timeout_ms: 10000
+        # Maximum fuel units for CPU metering
+        # Fuel is consumed per WASM instruction executed
+        # Higher values allow more computation
+        max_fuel: 1000000
  
  

@@ -45,6 +45,9 @@ pub struct Policy {
     /// Clock access policies for time-related operations.
     #[serde(default)]
     pub clock_policy: ClockPolicy,
+    /// Resource limits for CPU, memory, and execution time.
+    #[serde(default)]
+    pub resource_limits: ResourceLimits,
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -63,6 +66,22 @@ pub struct ClockPolicy {
     /// Virtual time offset in seconds (for testing/privacy)
     /// Adds this offset to all wall clock readings
     pub time_offset_seconds: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+pub struct ResourceLimits {
+    /// Maximum memory in bytes that the plugin can use
+    /// None = no limit
+    pub max_memory_bytes: Option<u64>,
+    /// CPU execution timeout in milliseconds
+    /// Uses Wasmtime's fuel metering to limit CPU instructions
+    pub cpu_timeout_ms: Option<u64>,
+    /// Wall clock timeout in milliseconds
+    /// Maximum real-world time the plugin can run
+    pub wall_clock_timeout_ms: Option<u64>,
+    /// Maximum fuel units for CPU metering
+    /// Fuel is consumed per WASM instruction executed
+    pub max_fuel: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]

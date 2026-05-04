@@ -24,7 +24,7 @@ use wasmtime_wasi_http::{HttpResult, WasiHttpCtx, WasiHttpView};
 use http_body_util::combinators::BoxBody;
 use bytes::Bytes;
 
-use crate::policy_loader::is_host_allowed;
+use crate::policy_loader::{is_host_allowed, ResourceLimits};
 
 // Plugin world bindings. This regenerates against your WIT every build.
 // `async: true` is required so the plugin's exports return futures, which
@@ -43,6 +43,10 @@ pub struct MyState {
     /// Hostnames the guest is allowed to reach. Cloned out of the policy
     /// at startup so the WasiHttpView impl can read it without locking.
     pub allowed_hosts: Vec<String>,
+    /// Resource limits for this plugin instance
+    pub resource_limits: ResourceLimits,
+    /// Start time for tracking wall clock timeout
+    pub start_time: std::time::Instant,
 }
 
 impl WasiView for MyState {
