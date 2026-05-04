@@ -507,6 +507,7 @@ cargo test -- --nocapture
 ## Documentation
 
 - **[README_SANDBOX_MANAGER.md](README_SANDBOX_MANAGER.md)** - Detailed sandbox manager documentation
+- **[docs/threat_model.md](docs/threat_model.md)** - **Comprehensive threat model and in-scope attacks**
 - **[docs/resource_limits.md](docs/resource_limits.md)** - Resource limit configuration
 - **[docs/environment_variables.md](docs/environment_variables.md)** - Environment variable filtering
 - **[docs/ip_address_filtering.md](docs/ip_address_filtering.md)** - Network access control
