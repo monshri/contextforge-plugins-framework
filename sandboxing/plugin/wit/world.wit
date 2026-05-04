@@ -3,9 +3,12 @@ package example:plugin;
 interface policy {
     check-key: func(json: string, key: string) -> string;
     create-file: func(filename: string, content: string) -> string;
+    make-http-request: func(url: string) -> string;
+    get-env-var: func(var-name: string) -> string;
 }
 
-
 world plugin {
+    import wasi:http/outgoing-handler@0.2.0;
+    import wasi:http/types@0.2.0;
     export policy;
 }

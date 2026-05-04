@@ -1,0 +1,4 @@
+# WIT dependencies for WASI HTTP support
+http = { url = "https://github.com/WebAssembly/wasi-http/archive/refs/tags/v0.2.0.tar.gz" }
+io = { url = "https://github.com/WebAssembly/wasi-io/archive/refs/tags/v0.2.0.tar.gz" }
+clocks = { url = "https://github.com/WebAssembly/wasi-clocks/archive/refs/tags/v0.2.0.tar.gz" }

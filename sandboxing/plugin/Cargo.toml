@@ -12,3 +12,15 @@ crate-type = ["cdylib"]
 
 [package.metadata.component]
 package = "example:plugin"
+
+[package.metadata.component.target]
+path = "wit"
+
+[package.metadata.component.target.dependencies]
+"wasi:http" = { path = "wit/deps/http" }
+"wasi:io" = { path = "wit/deps/io" }
+"wasi:clocks" = { path = "wit/deps/clocks" }
+"wasi:random" = { path = "wit/deps/random" }
+"wasi:cli" = { path = "wit/deps/cli" }
+"wasi:sockets" = { path = "wit/deps/sockets" }
+"wasi:filesystem" = { path = "wit/deps/filesystem" }

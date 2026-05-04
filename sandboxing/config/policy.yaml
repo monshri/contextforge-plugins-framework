@@ -6,5 +6,63 @@ plugin:
     policy:
       dir_name: ["./data"]
       permissions:
-        dir: ["read"] # or mutate
-        file: ["read"] # or write
+        dir: ["read"]    # or "mutate"
+        file: ["read"]   # or "write"
+      # Outbound HTTP allowlist. Supports hostnames, IP addresses, and CIDR ranges.
+      # Empty list means no outbound HTTP is allowed.
+      # Use "*" by itself to allow any host (not recommended).
+      # Wildcards like "*.example.com" match a single subdomain level.
+      # IP addresses: "192.168.1.100" for exact match
+      # CIDR ranges: "192.168.1.0/24" or "10.0.0.0/8" for IP ranges
+      # IPv6: "2001:db8::1" or "2001:db8::/32"
+      allowed_hosts:
+        - "httpbin.org"
+        - "*.githubusercontent.com"
+        - "127.0.0.1"              # Localhost IPv4
+        - "::1"                    # Localhost IPv6
+        - "192.168.1.0/24"         # Private network range
+        - "10.0.0.0/8"             # Private network range
+      # Environment variables allowlist. Only these env vars will be accessible to the plugin.
+      # Empty list means no environment variables are exposed.
+      # Use "*" to allow all environment variables (not recommended for security).
+      allowed_env_vars:
+        - "PATH"
+        - "HOME"
+        - "USER"
+        - "RUST_LOG"
+      
+      # Socket-level network policies for fine-grained control
+      socket_policy:
+        tcp:
+          # List of allowed TCP destinations
+          allowed_destinations:
+            - ip: "192.168.1.0/24"
+              ports: [80, 443, 8080]
+            - ip: "10.0.0.50"
+              ports: [5432, 5433]  # PostgreSQL
+            - ip: "127.0.0.1"
+              ports: []  # All ports allowed for localhost
+          max_connections: 50
+        
+        udp:
+          # List of allowed UDP destinations
+          allowed_destinations:
+            - ip: "8.8.8.8"
+              ports: [53]  # DNS
+            - ip: "1.1.1.1"
+              ports: [53]  # DNS
+          max_packet_size: 1500
+        restrictions:
+          block_privileged_ports: true  # Block ports < 1024
+          allow_bind: true              # Allow binding to local addresses
+          allow_listen: false           # Disallow creating TCP servers
+      
+      # Clock access policies for time-related operations
+      clock_policy:
+        allow_monotonic_clock: true     # Allow elapsed time measurement
+        allow_wall_clock: true          # Allow access to current date/time
+        min_resolution_ns: 1000000      # Minimum 1ms resolution (reduces timing precision)
+        max_queries_per_second: 10000   # Rate limit: 10k queries/sec
+        time_offset_seconds: null       # No time offset (null = use real time)
+ 
+ 
