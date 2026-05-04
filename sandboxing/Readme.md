@@ -574,5 +574,3 @@ cargo component build --release
 - [WIT (WebAssembly Interface Types)](https://github.com/WebAssembly/component-model/blob/main/design/mvp/WIT.md)
 
 ---
-
-**Note**: This sandboxing framework is designed for the ContextForge Plugins Framework to provide secure, isolated execution of untrusted plugin code with comprehensive lifecycle management.
