@@ -13,6 +13,7 @@
 //! to default_send_request.
 
 pub mod policy_loader;
+pub mod sandbox_manager;
 
 use wasmtime::component::ResourceTable;
 use wasmtime_wasi::{WasiCtx, WasiView};

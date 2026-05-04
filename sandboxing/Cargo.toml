@@ -11,6 +11,10 @@ path = "src/lib.rs"
 name = "sandboxing"
 path = "src/main.rs"
 
+[[example]]
+name = "multi_plugin_demo"
+path = "examples/multi_plugin_demo.rs"
+
 [dependencies]
 wasmtime = { version = "28", features = ["component-model", "async"] }
 wasmtime-wasi = "28"
