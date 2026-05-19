@@ -1,0 +1,43 @@
+plugin:
+  name: {{project-name}}
+  sandbox:
+    type: wasm-component
+    wasm_version: "preview2"
+    policy:
+      # Filesystem access — empty means no access.
+      # Add directory paths to grant read/write access to the guest.
+      dir_name: []
+      permissions:
+        dir: []
+        file: []
+
+      # Outbound HTTP — empty means all HTTP is blocked.
+      # Examples: ["api.example.com", "*.internal.corp"]
+      allowed_hosts: []
+
+      # Environment variables — empty means none exposed.
+      # Use ["*"] to expose all (not recommended).
+      allowed_env_vars: []
+
+      # Resource limits
+      resource_limits:
+        max_memory_bytes: 10485760    # 10 MB
+        max_fuel: 1000000             # ~1M WASM instructions
+        cpu_timeout_ms: 5000          # 5 seconds
+        wall_clock_timeout_ms: 10000  # 10 seconds
+
+      # Clock access
+      clock_policy:
+        allow_monotonic_clock: true
+        allow_wall_clock: false
+
+      # Network sockets — disabled by default
+      socket_policy:
+        tcp:
+          allowed_destinations: []
+        udp:
+          allowed_destinations: []
+        restrictions:
+          block_privileged_ports: true
+          allow_bind: false
+          allow_listen: false

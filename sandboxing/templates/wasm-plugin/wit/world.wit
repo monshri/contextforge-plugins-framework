@@ -1,0 +1,45 @@
+package cpex:plugin@0.1.0;
+
+/// Plugin lifecycle.
+interface lifecycle {
+    /// Initialize with plugin-specific config (JSON from the YAML config file).
+    /// Called once before any hooks fire.
+    init: func(config-json: string) -> result<_, string>;
+
+    /// Graceful shutdown. Called once during teardown.
+    shutdown: func();
+}
+
+/// Hook dispatch interface.
+interface hooks {
+    /// Inbound hook invocation.
+    record hook-request {
+        /// Hook name (e.g., "tool_pre_invoke"). Dispatch on this value.
+        hook-name: string,
+        /// JSON-serialized hook payload.
+        payload-json: string,
+        /// JSON-serialized Extensions (read-only).
+        extensions-json: string,
+        /// JSON-serialized PluginContext.
+        context-json: string,
+    }
+
+    /// Result of hook processing.
+    variant hook-result {
+        /// Allow — pipeline continues unchanged.
+        allow,
+        /// Deny — halt pipeline. Payload: JSON PluginViolation.
+        deny(string),
+        /// Modify — return modified payload JSON. Pipeline continues.
+        modify(string),
+    }
+
+    /// Process a hook invocation.
+    handle: func(request: hook-request) -> hook-result;
+}
+
+/// Standard CPEX plugin world. All WASM plugins target this.
+world plugin {
+    export lifecycle;
+    export hooks;
+}
