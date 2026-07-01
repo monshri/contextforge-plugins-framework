@@ -1,7 +1,7 @@
-# CMF Capabilities Demo Configuration
+# Custom Payload Demo Configuration
 #
-# Demonstrates WASM plugin sandboxing with capability-gated access.
-# The header-injector plugin modifies security labels and HTTP headers.
+# Demonstrates dispatching a non-CMF payload (ToolInvokePayload) through a WASM plugin.
+# The plugin receives a Payload::Custom JSON envelope and passes it through unchanged.
 
 plugin_settings:
   routing_enabled: true
@@ -9,20 +9,16 @@ plugin_settings:
 global:
   policies:
     all:
-      plugins: [header-injector]
+      plugins: [custom-handler]
 
 plugins:
-  - name: header-injector
+  - name: custom-handler
     kind: wasm://plugin.wasm
-    hooks: [cmf.tool_pre_invoke]
+    hooks: [tool_pre_invoke]
     mode: sequential
     priority: 10
     on_error: fail
-    capabilities:
-      - read_headers
-      - write_headers
-      - read_labels
-      - append_labels
+    capabilities: []
     config:
       sandbox_policy:
         allowed_filesystem: []

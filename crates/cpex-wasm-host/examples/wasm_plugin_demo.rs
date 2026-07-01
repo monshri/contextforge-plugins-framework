@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya
 //
-// Demonstrates invoking a WASM plugin through the PluginManager pipeline.
-// Reads plugin configuration from config/config.yaml.
+// Demonstrates invoking a WASM header-injector plugin through the PluginManager pipeline.
+// The plugin modifies security labels and HTTP headers, and the host verifies the
+// modified_extensions are propagated back correctly.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -20,10 +21,8 @@ use cpex_wasm_host::factory::WasmPluginFactory;
 
 #[tokio::main]
 async fn main() {
-    println!("=== WASM Plugin Demo (via PluginManager) ===\n");
+    println!("=== WASM Header-Injector Plugin Demo ===\n");
 
-    // 1. Create plugin manager and register wasm factory under the exact kind string.
-    //    Each plugin gets its own isolated SandboxManager instance.
     let crate_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let config_path = crate_dir.join("config/config.yaml");
     println!("--- Loading config from {} ---\n", config_path.display());
@@ -40,7 +39,7 @@ async fn main() {
     mgr.load_config(cpex_config).unwrap();
     mgr.initialize().await.unwrap();
 
-    // 3. Build a test payload (assistant requesting a tool call)
+    // Build a test payload (assistant requesting a tool call)
     let payload = MessagePayload {
         message: Message {
             schema_version: cpex_core::cmf::constants::SCHEMA_VERSION.into(),
@@ -62,7 +61,7 @@ async fn main() {
         },
     };
 
-    // 4. Build extensions with security context
+    // Build extensions with security + HTTP context
     let mut security = SecurityExtension::default();
     security.add_label("PII");
     security.add_label("HR_DATA");
@@ -96,101 +95,42 @@ async fn main() {
         ..Default::default()
     };
 
-    // --- Pre-invoke: type-safe dispatch via invoke_named ---
-    println!("=== Phase 1: cmf.tool_pre_invoke ===\n");
-    let (pre_result, bg) = mgr
+    println!("--- Input extensions ---");
+    println!("  Security labels: [\"PII\", \"HR_DATA\"]");
+    println!("  HTTP headers: Authorization, X-Request-ID\n");
+
+    // Invoke the header-injector plugin via pre-invoke hook
+    println!("=== Invoking cmf.tool_pre_invoke (header-injector) ===\n");
+    let (result, bg) = mgr
         .invoke_named::<CmfHook>(
             "cmf.tool_pre_invoke",
             payload,
             ext,
-            None, // first hook — no context table
+            None,
         )
         .await;
 
     println!();
-
-        println!();
-    if pre_result.continue_processing {
-        println!("Pre-invoke result: ALLOWED");
-        if let Some(ref modified_ext) = pre_result.modified_extensions {
+    if result.continue_processing {
+        println!("Result: ALLOWED");
+        if let Some(ref modified_ext) = result.modified_extensions {
             if let Some(ref sec) = modified_ext.security {
                 let labels: Vec<&String> = sec.labels.iter().collect();
-                println!("  Labels after pre-invoke: {:?}", labels);
+                println!("  Modified labels: {:?}", labels);
             }
             if let Some(ref http) = modified_ext.http {
-                println!("  Headers after pre-invoke: {:?}", http.request_headers);
+                println!("  Modified headers: {:?}", http.request_headers);
             }
+        } else {
+            println!("  (no extension modifications returned)");
         }
     } else {
         println!(
-            "Pre-invoke result: DENIED — {}",
-            pre_result.violation.as_ref().unwrap().reason
+            "Result: DENIED — {}",
+            result.violation.as_ref().unwrap().reason
         );
-        bg.wait_for_background_tasks().await;
-        println!("\n=== Demo complete ===");
-        return;
     }
+
     bg.wait_for_background_tasks().await;
-
-    println!("\n--- Tool 'get_compensation' executes... ---");
-    println!("  Result: {{\"salary\": 150000, \"currency\": \"USD\"}}\n");
-
-    // --- Post-invoke: different CMF message with tool result ---
-    println!("=== Phase 2: cmf.tool_post_invoke ===\n");
-
-
-    let post_payload = MessagePayload {
-        message: Message {
-            schema_version: cpex_core::cmf::constants::SCHEMA_VERSION.into(),
-            role: Role::Tool,
-            content: vec![ContentPart::ToolResult {
-                content: cpex_core::cmf::ToolResult {
-                    tool_call_id: "tc_001".into(),
-                    tool_name: "get_compensation".into(),
-                    content: serde_json::json!({"salary": 150000, "currency": "USD"}),
-                    is_error: false,
-                },
-            }],
-            channel: None,
-        },
-    };
-
-        // Build post-invoke extensions — carry forward any modifications
-    // from pre-invoke via the context table
-    let post_ext = pre_result.modified_extensions.unwrap_or_else(|| {
-        // Rebuild if no modifications
-        let mut security = SecurityExtension::default();
-        security.add_label("PII");
-        Extensions {
-            security: Some(Arc::new(security)),
-            meta: Some(Arc::new(MetaExtension {
-                entity_type: Some("tool".into()),
-                entity_name: Some("get_compensation".into()),
-                ..Default::default()
-            })),
-            ..Default::default()
-        }
-    });
-
-        let (post_result, post_bg) = mgr
-        .invoke_named::<CmfHook>(
-            "cmf.tool_post_invoke",
-            post_payload,
-            post_ext,
-            Some(pre_result.context_table),
-        )
-        .await;
-
-    println!();
-    if post_result.continue_processing {
-        println!("Post-invoke result: ALLOWED");
-    } else {
-        println!(
-            "Post-invoke result: DENIED — {}",
-            post_result.violation.as_ref().unwrap().reason
-        );
-    }
-
-    post_bg.wait_for_background_tasks().await;
     println!("\n=== Demo complete ===");
 }

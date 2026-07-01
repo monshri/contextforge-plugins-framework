@@ -219,7 +219,7 @@ impl SandboxManager {
     /// Epoch deadline is per-invocation (reset each call so no single call hangs).
     pub async fn invoke(
         &mut self,
-        payload: types::MessagePayload,
+        payload: types::Payload,
         extensions: types::Extensions,
         ctx: types::PluginContext,
     ) -> Result<types::PluginResult> {

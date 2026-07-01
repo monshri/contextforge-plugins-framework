@@ -147,6 +147,16 @@ interface types {
     message: message,
   }
 
+  record custom-payload {
+    payload-type: string,
+    payload-json: string,
+  }
+
+  variant payload {
+    message(message-payload),
+    custom(custom-payload),
+  }
+
   record request-extension {
     environment: option<string>,
     request-id: option<string>,
@@ -164,11 +174,63 @@ interface types {
     claims: list<tuple<string, string>>,
   }
 
+  record object-security-profile {
+    managed-by: option<string>,
+    permissions: list<string>,
+    trust-domain: option<string>,
+    data-scope: list<string>,
+  }
+
+  record retention-policy {
+    max-age-seconds: option<u64>,
+    policy: string,
+    delete-after: option<string>,
+  }
+
+  record data-policy {
+    apply-labels: list<string>,
+    allowed-actions: option<list<string>>,
+    denied-actions: list<string>,
+    retention: option<retention-policy>,
+  }
+
+  enum client-trust-level {
+    first-party,
+    third-party,
+    internal,
+  }
+
+  record client-extension {
+    client-id: string,
+    client-name: option<string>,
+    trust-level: client-trust-level,
+    authorized-scopes: list<string>,
+    authorized-audiences: list<string>,
+    roles: list<string>,
+    permissions: list<string>,
+    teams: list<string>,
+    claims: list<tuple<string, string>>,
+  }
+
+  record workload-identity {
+    spiffe-id: option<string>,
+    trust-domain: option<string>,
+    attested-at: option<string>,
+    attestor: option<string>,
+    selectors: list<string>,
+    client-id: option<string>,
+  }
+
   record security-extension {
     labels: list<string>,
     classification: option<string>,
     subject: option<subject-extension>,
+    client: option<client-extension>,
+    caller-workload: option<workload-identity>,
+    this-workload: option<workload-identity>,
     auth-method: option<string>,
+    objects: list<tuple<string, object-security-profile>>,
+    data: list<tuple<string, data-policy>>,
   }
 
   record http-extension {
@@ -184,11 +246,132 @@ interface types {
     properties: list<tuple<string, string>>,
   }
 
+  record conversation-context {
+    history: string,
+    summary: option<string>,
+    topics: list<string>,
+  }
+
+  record agent-extension {
+    input: option<string>,
+    session-id: option<string>,
+    conversation-id: option<string>,
+    turn: option<u32>,
+    agent-id: option<string>,
+    parent-agent-id: option<string>,
+    conversation: option<conversation-context>,
+  }
+
+  record tool-metadata {
+    name: string,
+    title: option<string>,
+    description: option<string>,
+    input-schema: option<string>,
+    output-schema: option<string>,
+    server-id: option<string>,
+    namespace: option<string>,
+    annotations: list<tuple<string, string>>,
+  }
+
+  record resource-metadata {
+    uri: string,
+    name: option<string>,
+    description: option<string>,
+    mime-type: option<string>,
+    server-id: option<string>,
+    annotations: list<tuple<string, string>>,
+  }
+
+  record prompt-metadata {
+    name: string,
+    description: option<string>,
+    arguments: option<string>,
+    server-id: option<string>,
+    annotations: list<tuple<string, string>>,
+  }
+
+  record mcp-extension {
+    tool: option<tool-metadata>,
+    mcp-resource: option<resource-metadata>,
+    mcp-prompt: option<prompt-metadata>,
+  }
+
+  enum stop-reason {
+    end,
+    return,
+    call,
+    max-tokens,
+    stop-sequence,
+  }
+
+  record token-usage {
+    input-tokens: u32,
+    output-tokens: u32,
+    total-tokens: u32,
+  }
+
+  record completion-extension {
+    stop-reason: option<stop-reason>,
+    tokens: option<token-usage>,
+    model: option<string>,
+    raw-format: option<string>,
+    created-at: option<string>,
+    latency-ms: option<u64>,
+  }
+
+  record provenance-extension {
+    source: option<string>,
+    message-id: option<string>,
+    parent-id: option<string>,
+  }
+
+  record llm-extension {
+    model-id: option<string>,
+    provider: option<string>,
+    capabilities: list<string>,
+  }
+
+  record framework-extension {
+    framework: option<string>,
+    framework-version: option<string>,
+    node-id: option<string>,
+    graph-id: option<string>,
+    metadata: list<tuple<string, string>>,
+  }
+
+  record delegation-hop {
+    subject-id: string,
+    subject-type: option<string>,
+    audience: option<string>,
+    scopes-granted: list<string>,
+    timestamp: option<string>,
+    ttl-seconds: option<u64>,
+    strategy: option<string>,
+    from-cache: bool,
+  }
+
+  record delegation-extension {
+    chain: list<delegation-hop>,
+    depth: u32,
+    origin-subject-id: option<string>,
+    actor-subject-id: option<string>,
+    delegated: bool,
+    age-seconds: f64,
+  }
+
   record extensions {
     request: option<request-extension>,
     security: option<security-extension>,
     http: option<http-extension>,
     meta: option<meta-extension>,
+    agent: option<agent-extension>,
+    mcp: option<mcp-extension>,
+    completion: option<completion-extension>,
+    provenance: option<provenance-extension>,
+    llm: option<llm-extension>,
+    framework: option<framework-extension>,
+    delegation: option<delegation-extension>,
+    custom: option<string>,
   }
 
   record plugin-context {
@@ -206,7 +389,7 @@ interface types {
 
   record plugin-result {
     continue-processing: bool,
-    modified-payload: option<message-payload>,
+    modified-payload: option<payload>,
     modified-extensions: option<extensions>,
     violation: option<plugin-violation>,
     metadata: option<string>,
@@ -221,10 +404,10 @@ world plugin {
   import wasi:http/types@0.2.6;
   import wasi:http/outgoing-handler@0.2.6;
 
-  use types.{message-payload, extensions, plugin-context, plugin-result};
+  use types.{payload, extensions, plugin-context, plugin-result};
 
   export handle-hook: func(
-    payload: message-payload,
+    payload: payload,
     extensions: extensions,
     ctx: plugin-context
   ) -> plugin-result;

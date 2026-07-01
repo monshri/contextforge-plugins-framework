@@ -14,7 +14,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use cpex_core::cmf::message::MessagePayload;
 use cpex_core::context::PluginContext;
 use cpex_core::error::PluginError;
 use cpex_core::extensions::Extensions;
@@ -23,7 +22,7 @@ use cpex_core::hooks::payload::PluginPayload;
 use cpex_core::plugin::{Plugin, PluginConfig};
 use cpex_core::registry::AnyHookHandler;
 
-use crate::conversions::{native_context_to_wit, native_extensions_to_wit, native_payload_to_wit, wit_result_to_native};
+use crate::conversions::{native_any_payload_to_wit, native_context_to_wit, native_extensions_to_wit, wit_result_to_native};
 use crate::sandbox_manager::SandboxManager;
 
 // ---------------------------------------------------------------------------
@@ -156,21 +155,14 @@ impl AnyHookHandler for WasmBridgeHandler {
         extensions: &Extensions,
         ctx: &mut PluginContext,
     ) -> Result<Box<dyn std::any::Any + Send + Sync>, Box<PluginError>> {
-        // Downcast the type-erased payload to MessagePayload
-        let native_payload = payload
-            .as_any()
-            .downcast_ref::<MessagePayload>()
-            .ok_or_else(|| {
-                Box::new(PluginError::Config {
-                    message: format!(
-                        "plugin '{}': payload type mismatch, expected MessagePayload",
-                        self.plugin_name
-                    ),
-                })
-            })?;
-
-        // Convert native types → WIT types
-        let wit_payload = native_payload_to_wit(native_payload);
+        // Convert native types → WIT types.
+        // Any PluginPayload is accepted: MessagePayload maps to Payload::Message,
+        // all other types map to Payload::Custom via JSON serialization.
+        let wit_payload = native_any_payload_to_wit(payload).map_err(|e| {
+            Box::new(PluginError::Config {
+                message: format!("plugin '{}': {}", self.plugin_name, e),
+            })
+        })?;
         let wit_extensions = native_extensions_to_wit(extensions);
         let wit_ctx = native_context_to_wit(ctx);
 
@@ -190,7 +182,7 @@ impl AnyHookHandler for WasmBridgeHandler {
         };
 
         // Convert WIT result → native PluginResult, then erase for the executor
-        let native_result = wit_result_to_native(wit_result);
+        let native_result = wit_result_to_native(wit_result, extensions);
         Ok(cpex_core::executor::erase_result(native_result))
     }
 
