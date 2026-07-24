@@ -1,0 +1,37 @@
+# Filesystem Sandbox Enforcement Demo Configuration
+#
+# Policy: read-only access is granted only to examples/data/input.txt.
+# All other filesystem paths are denied.
+
+plugin_settings:
+  routing_enabled: true
+
+global:
+  policies:
+    all:
+      plugins: [fs-test]
+
+plugins:
+  - name: fs-test
+    kind: wasm://fs-test.wasm
+    hooks: [cmf.tool_pre_invoke]
+    mode: sequential
+    priority: 10
+    on_error: fail
+    config:
+      sandbox_policy:
+        allowed_filesystem:
+          - file: /Users/shritipriya/Documents/CPEX-WASM-JUL2/contextforge-plugins-framework/crates/cpex-wasm-host/examples/data/input.txt
+            permission: read-only
+        allowed_network: []      # No outbound HTTP allowed
+        allowed_env: []          # No host environment variables exposed
+        resources:
+          max_memory_bytes: 10485760   # 10 MB linear memory cap
+          max_fuel: 1000000000         # ~1 billion instructions
+          max_execution_time_ms: 5000  # 5 seconds per invocation timeout
+          max_instances: 10
+          max_tables: 10
+
+routes:
+  - tool: "*"
+    plugins: []

@@ -1,0 +1,301 @@
+# Filesystem Permission Scenarios — Comprehensive Demo Configuration
+#
+# This file demonstrates ALL named filesystem permission scenarios supported by
+# cpex-wasm-host's SandboxPolicy. Each plugin entry shows a different scenario
+# from the DirPerms x FilePerms grid.
+#
+# The permission model maps named scenarios to wasmtime_wasi's DirPerms and
+# FilePerms flags. Two orthogonal flag sets control access:
+#   - DirPerms: governs the namespace (listing, creating, deleting entries)
+#   - FilePerms: governs file contents (reading, writing bytes)
+
+plugin_settings:
+  routing_enabled: true
+
+global:
+  policies:
+    all:
+      plugins: [corpus-reader, workspace-manager, artifact-writer, state-updater, catalog-scanner, scratch-worker]
+
+plugins:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Scenario 1: read-only
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DirPerms: READ | FilePerms: READ
+  #
+  # The plugin can:
+  #   - List directory entries
+  #   - Open files and subdirectories
+  #   - Read file contents
+  #   - Stat entries, read symlink targets
+  #
+  # The plugin CANNOT:
+  #   - Create, delete, or rename files
+  #   - Write to any file
+  #   - Create directories, symlinks, or hard links
+  #
+  # Use case: handing a plugin input data — a corpus to analyze, config files,
+  # a template set, or static assets. The workhorse permission.
+  - name: corpus-reader
+    kind: wasm://fs-test.wasm
+    hooks: [cmf.tool_pre_invoke]
+    mode: sequential
+    priority: 10
+    on_error: fail
+    config:
+      sandbox_policy:
+        allowed_filesystem:
+          - dir: /data/corpus
+            permission: read-only
+        allowed_network: []
+        allowed_env: []
+        resources:
+          max_memory_bytes: 10485760
+          max_fuel: 1000000000
+          max_execution_time_ms: 5000
+          max_instances: 10
+          max_tables: 10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Scenario 2: full-access
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DirPerms: READ|MUTATE | FilePerms: READ|WRITE
+  #
+  # The plugin can:
+  #   - Everything within the preopened directory
+  #   - List, read, write, create, delete, rename
+  #
+  # The plugin CANNOT:
+  #   - Escape the preopen boundary (.. traversal is blocked)
+  #   - Follow symlinks that resolve outside the preopen root
+  #
+  # Use case: a scratch workspace, a build directory, or a genuinely trusted
+  # plugin that needs full control over its working area.
+  - name: workspace-manager
+    kind: wasm://fs-test.wasm
+    hooks: [cmf.tool_pre_invoke]
+    mode: sequential
+    priority: 10
+    on_error: fail
+    config:
+      sandbox_policy:
+        allowed_filesystem:
+          - dir: /tmp/plugin-workspace
+            permission: full-access
+        allowed_network: []
+        allowed_env: []
+        resources:
+          max_memory_bytes: 67108864
+          max_fuel: 2000000000
+          max_execution_time_ms: 10000
+          max_instances: 10
+          max_tables: 10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Scenario 3: drop-box
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DirPerms: MUTATE | FilePerms: WRITE
+  #
+  # The plugin can:
+  #   - Create new files
+  #   - Write to files it creates
+  #   - Delete and rename entries
+  #
+  # The plugin CANNOT:
+  #   - List the directory (no enumeration)
+  #   - Read any file contents (not even its own writes)
+  #   - Open existing files for reading
+  #
+  # Use case: a log sink or artifact output directory where the plugin must not
+  # inspect what other tenants have deposited. Think of it like a mail slot.
+  #
+  # Note: MUTATE still permits deletion, so a plugin can destroy the drop box's
+  # contents even though it cannot read them.
+  - name: artifact-writer
+    kind: wasm://fs-test.wasm
+    hooks: [cmf.tool_pre_invoke]
+    mode: sequential
+    priority: 10
+    on_error: fail
+    config:
+      sandbox_policy:
+        allowed_filesystem:
+          - dir: /var/artifacts/plugin-output
+            permission: drop-box
+        allowed_network: []
+        allowed_env: []
+        resources:
+          max_memory_bytes: 10485760
+          max_fuel: 1000000000
+          max_execution_time_ms: 5000
+          max_instances: 10
+          max_tables: 10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Scenario 4: fixed-mutable
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DirPerms: READ | FilePerms: READ|WRITE
+  #
+  # The plugin can:
+  #   - List directory entries
+  #   - Open and read existing files
+  #   - Write to (overwrite) existing files
+  #
+  # The plugin CANNOT:
+  #   - Create new files
+  #   - Delete or rename entries
+  #   - Create directories, symlinks, or hard links
+  #
+  # Use case: handing over a known set of state slots (a fixed group of config
+  # or state files) where the directory shape must stay constant, but the plugin
+  # updates file contents in place.
+  - name: state-updater
+    kind: wasm://fs-test.wasm
+    hooks: [cmf.tool_pre_invoke]
+    mode: sequential
+    priority: 10
+    on_error: fail
+    config:
+      sandbox_policy:
+        allowed_filesystem:
+          - dir: /var/state/plugin-slots
+            permission: fixed-mutable
+        allowed_network: []
+        allowed_env: []
+        resources:
+          max_memory_bytes: 10485760
+          max_fuel: 1000000000
+          max_execution_time_ms: 5000
+          max_instances: 10
+          max_tables: 10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Scenario 5: list-only
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DirPerms: READ | FilePerms: (empty)
+  #
+  # The plugin can:
+  #   - Enumerate directory entries
+  #   - Stat entries (size, timestamps)
+  #
+  # The plugin CANNOT:
+  #   - Read any file's contents
+  #   - Write to any file
+  #   - Create, delete, or rename entries
+  #
+  # Use case: letting a plugin discover *what* is available without accessing
+  # the data itself, e.g., so it can request specific items through a host API
+  # rather than reading files directly.
+  - name: catalog-scanner
+    kind: wasm://fs-test.wasm
+    hooks: [cmf.tool_pre_invoke]
+    mode: sequential
+    priority: 10
+    on_error: fail
+    config:
+      sandbox_policy:
+        allowed_filesystem:
+          - dir: /data/catalog
+            permission: list-only
+        allowed_network: []
+        allowed_env: []
+        resources:
+          max_memory_bytes: 10485760
+          max_fuel: 1000000000
+          max_execution_time_ms: 5000
+          max_instances: 10
+          max_tables: 10
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Scenario 6: private-scratch
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DirPerms: MUTATE | FilePerms: READ|WRITE
+  #
+  # The plugin can:
+  #   - Create new files
+  #   - Read and write file contents
+  #   - Delete and rename entries
+  #
+  # The plugin CANNOT:
+  #   - List the directory (no enumeration/discovery)
+  #
+  # Use case: a scratch space where the plugin should not survey its
+  # surroundings. The plugin can use any path it knows or constructs, but
+  # cannot enumerate to discover what else is there.
+  #
+  # Note: this is security-through-obscurity — a plugin that can guess or
+  # derive filenames can still access them. The lack of listing is a mild
+  # obstacle, not a real confidentiality barrier.
+  - name: scratch-worker
+    kind: wasm://fs-test.wasm
+    hooks: [cmf.tool_pre_invoke]
+    mode: sequential
+    priority: 10
+    on_error: fail
+    config:
+      sandbox_policy:
+        allowed_filesystem:
+          - dir: /tmp/plugin-scratch
+            permission: private-scratch
+        allowed_network: []
+        allowed_env: []
+        resources:
+          max_memory_bytes: 33554432
+          max_fuel: 2000000000
+          max_execution_time_ms: 10000
+          max_instances: 10
+          max_tables: 10
+
+routes:
+  - tool: "*"
+    plugins: []
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WARNING SCENARIOS — NOT SUPPORTED
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# The following DirPerms x FilePerms combinations are intentionally NOT exposed
+# as named permission values. They represent likely mistakes or incoherent
+# policies. They are documented here for educational purposes only.
+#
+# ─── Blind Overwrite (DirPerms::READ + FilePerms::WRITE) ───────────────────
+#
+#   The plugin can open existing files and overwrite them, but never read them
+#   back and never create new ones. Almost always a mistake:
+#   - If you meant "the plugin writes output here," it needs MUTATE to create.
+#   - If you meant "the plugin updates existing files," it probably needs
+#     FilePerms::all() (i.e., fixed-mutable).
+#
+# ─── Create Empty Files (DirPerms::MUTATE + FilePerms::empty()) ────────────
+#
+#   The plugin can create, delete, and rename entries, but cannot put bytes
+#   into anything or read anything. Essentially a marker-file mechanism where
+#   a file's *existence* carries the signal and contents are irrelevant.
+#   Too niche to warrant a named permission.
+#
+# ─── Restructure Without Contents (DirPerms::all() + FilePerms::empty()) ───
+#
+#   The plugin can delete, rename, and create entries, but cannot read or write
+#   any file's bytes. It can destroy data wholesale while being unable to read
+#   a single byte of it. Rarely a coherent security policy.
+#
+# ─── Contradictory (DirPerms::MUTATE + FilePerms::READ) ───────────────────
+#
+#   The plugin can create and delete files, and can read contents — but cannot
+#   write. Since it can create files it then cannot fill, and delete files it
+#   can read, the policy doesn't express a sensible intent.
+#
+# ─── DirPerms::all() + FilePerms::READ — AVOID ────────────────────────────
+#
+#   Incoherent as a security policy: MUTATE already permits deleting and
+#   renaming. Withholding FilePerms::WRITE buys no integrity protection —
+#   an attacker who wants to replace contents simply unlinks and creates anew.
+#   This was also the shape of CVE-2026-47261 (wasmtime-wasi path_open TRUNCATE
+#   bypass). If integrity is the goal, drop MUTATE, not WRITE.
+#
+# ─── Inert (DirPerms::empty()) ────────────────────────────────────────────
+#
+#   Opening a path requires DirPerms::READ, so empty DirPerms makes the
+#   preopen useless regardless of FilePerms. The guest holds a directory handle
+#   it cannot list, open through, or reach any file with. If you want no
+#   filesystem access, simply don't configure the preopen (the default state).

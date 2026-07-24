@@ -107,3 +107,94 @@ fn sandbox_policy_deserializes_to_same_type_used_by_factory() {
         policy.resources.max_memory_bytes
     );
 }
+
+// ─── Sandbox Scenarios Config Tests ──────────────────────────────────────────
+
+#[test]
+fn config_sandbox_scenarios_is_valid_yaml() {
+    let config_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("config/config_sandbox_scenarios.yaml");
+    let raw =
+        std::fs::read_to_string(&config_path).expect("failed to read config_sandbox_scenarios.yaml");
+    let _: serde_yaml::Value =
+        serde_yaml::from_str(&raw).expect("config_sandbox_scenarios.yaml is not valid YAML");
+}
+
+#[test]
+fn config_sandbox_scenarios_has_six_plugins() {
+    let config_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("config/config_sandbox_scenarios.yaml");
+    let raw = std::fs::read_to_string(&config_path).expect("failed to read config");
+    let config: serde_yaml::Value = serde_yaml::from_str(&raw).unwrap();
+
+    let plugins = config["plugins"]
+        .as_sequence()
+        .expect("plugins should be a list");
+    assert_eq!(plugins.len(), 6, "should have 6 scenario plugins");
+}
+
+#[test]
+fn config_sandbox_scenarios_permissions_are_recognized() {
+    let config_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("config/config_sandbox_scenarios.yaml");
+    let raw = std::fs::read_to_string(&config_path).expect("failed to read config");
+    let config: serde_yaml::Value = serde_yaml::from_str(&raw).unwrap();
+
+    let plugins = config["plugins"].as_sequence().unwrap();
+    let expected = vec![
+        ("corpus-reader", "read-only"),
+        ("workspace-manager", "full-access"),
+        ("artifact-writer", "drop-box"),
+        ("state-updater", "fixed-mutable"),
+        ("catalog-scanner", "list-only"),
+        ("scratch-worker", "private-scratch"),
+    ];
+
+    for (i, (name, permission)) in expected.iter().enumerate() {
+        let plugin = &plugins[i];
+        assert_eq!(
+            plugin["name"].as_str(),
+            Some(*name),
+            "plugin {} name mismatch",
+            i
+        );
+
+        let policy_value = plugin["config"]["sandbox_policy"].clone();
+        let policy: SandboxPolicy = serde_yaml::from_value(policy_value)
+            .unwrap_or_else(|e| panic!("failed to parse sandbox_policy for '{}': {}", name, e));
+
+        assert_eq!(policy.allowed_filesystem.len(), 1);
+        assert_eq!(
+            policy.allowed_filesystem[0].permission, *permission,
+            "plugin '{}' permission mismatch",
+            name
+        );
+    }
+}
+
+#[test]
+fn config_sandbox_scenarios_all_permissions_resolve_successfully() {
+    let config_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("config/config_sandbox_scenarios.yaml");
+    let raw = std::fs::read_to_string(&config_path).expect("failed to read config");
+    let config: serde_yaml::Value = serde_yaml::from_str(&raw).unwrap();
+
+    let plugins = config["plugins"].as_sequence().unwrap();
+
+    for plugin in plugins {
+        let name = plugin["name"].as_str().unwrap();
+        let policy_value = plugin["config"]["sandbox_policy"].clone();
+        let policy: SandboxPolicy = serde_yaml::from_value(policy_value).unwrap();
+
+        for rule in &policy.allowed_filesystem {
+            let result = cpex_wasm_host::policy_loader::resolve_permission(&rule.permission);
+            assert!(
+                result.is_ok(),
+                "permission '{}' in plugin '{}' should resolve: {:?}",
+                rule.permission,
+                name,
+                result.err()
+            );
+        }
+    }
+}

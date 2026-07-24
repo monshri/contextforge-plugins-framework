@@ -65,7 +65,16 @@ pub struct FilesystemRule {
     /// File path (its parent directory is preopened)
     #[serde(default)]
     pub file: Option<String>,
-    /// Permission level: "read" or "write"/"mutate"
+    /// Permission level controlling what the plugin can do within this path.
+    ///
+    /// | Value | DirPerms | FilePerms | Description |
+    /// |-------|----------|-----------|-------------|
+    /// | `read-only` | READ | READ | List and read, no modifications |
+    /// | `full-access` | READ+MUTATE | READ+WRITE | Full access within the preopen |
+    /// | `drop-box` | MUTATE | WRITE | Write-only; cannot list or read back |
+    /// | `fixed-mutable` | READ | READ+WRITE | Read/write existing files; no create/delete |
+    /// | `list-only` | READ | (empty) | Enumerate filenames only; cannot open contents |
+    /// | `private-scratch` | MUTATE | READ+WRITE | Full file I/O; cannot list directory |
     pub permission: String,
 }
 
@@ -77,6 +86,30 @@ pub struct PluginWasiContext {
     pub allowed_hosts: Arc<Vec<String>>,
 }
 
+/// Maps a permission string to the corresponding (DirPerms, FilePerms) flags.
+/// Only the 6 named scenarios are accepted; unknown values are rejected.
+pub fn resolve_permission(permission: &str) -> Result<(DirPerms, FilePerms)> {
+    match permission {
+        "read-only" => Ok((DirPerms::READ, FilePerms::READ)),
+        "full-access" => Ok((
+            DirPerms::READ | DirPerms::MUTATE,
+            FilePerms::READ | FilePerms::WRITE,
+        )),
+        "drop-box" => Ok((DirPerms::MUTATE, FilePerms::WRITE)),
+        "fixed-mutable" => Ok((DirPerms::READ, FilePerms::READ | FilePerms::WRITE)),
+        "list-only" => Ok((DirPerms::READ, FilePerms::empty())),
+        "private-scratch" => Ok((
+            DirPerms::MUTATE,
+            FilePerms::READ | FilePerms::WRITE,
+        )),
+        other => anyhow::bail!(
+            "unknown filesystem permission: '{}'. Valid values: \
+             read-only, full-access, drop-box, fixed-mutable, list-only, private-scratch",
+            other
+        ),
+    }
+}
+
 /// Builds a WASI context from the given sandbox policy.
 /// Preopens filesystem paths, injects allowed env vars, and captures the network allow-list.
 /// If sandbox_policy is None, the context grants no host access (full lockdown).
@@ -85,14 +118,7 @@ pub fn build_wasi_context(sandbox_policy: Option<&SandboxPolicy>) -> Result<Plug
 
     if let Some(policy) = sandbox_policy {
         for rule in &policy.allowed_filesystem {
-            let (dir_perms, file_perms) = match rule.permission.as_str() {
-                "read" => (DirPerms::READ, FilePerms::READ),
-                "write" | "mutate" => (
-                    DirPerms::READ | DirPerms::MUTATE,
-                    FilePerms::READ | FilePerms::WRITE,
-                ),
-                other => anyhow::bail!("unknown filesystem permission: {}", other),
-            };
+            let (dir_perms, file_perms) = resolve_permission(rule.permission.as_str())?;
 
             if let Some(dir) = &rule.dir {
                 builder
@@ -169,7 +195,7 @@ mod tests {
         let yaml = r#"
 allowed_filesystem:
   - dir: /tmp/data
-    permission: "read"
+    permission: "read-only"
 allowed_network:
   - "httpbin.org"
 allowed_env:
@@ -218,7 +244,7 @@ resources:
             allowed_filesystem: vec![FilesystemRule {
                 dir: Some("/nonexistent_path_that_does_not_exist_xyz".to_string()),
                 file: None,
-                permission: "read".to_string(),
+                permission: "read-only".to_string(),
             }],
             ..Default::default()
         };
@@ -259,5 +285,121 @@ resources:
         assert_eq!(ctx.allowed_hosts.len(), 2);
         assert!(ctx.allowed_hosts.contains(&"api.internal.svc".to_string()));
         assert!(ctx.allowed_hosts.contains(&"auth.example.com".to_string()));
+    }
+
+    #[test]
+    fn test_resolve_permission_read_only() {
+        let (d, f) = resolve_permission("read-only").unwrap();
+        assert_eq!(d, DirPerms::READ);
+        assert_eq!(f, FilePerms::READ);
+    }
+
+    #[test]
+    fn test_resolve_permission_full_access() {
+        let (d, f) = resolve_permission("full-access").unwrap();
+        assert_eq!(d, DirPerms::READ | DirPerms::MUTATE);
+        assert_eq!(f, FilePerms::READ | FilePerms::WRITE);
+    }
+
+    #[test]
+    fn test_resolve_permission_drop_box() {
+        let (d, f) = resolve_permission("drop-box").unwrap();
+        assert_eq!(d, DirPerms::MUTATE);
+        assert_eq!(f, FilePerms::WRITE);
+    }
+
+    #[test]
+    fn test_resolve_permission_fixed_mutable() {
+        let (d, f) = resolve_permission("fixed-mutable").unwrap();
+        assert_eq!(d, DirPerms::READ);
+        assert_eq!(f, FilePerms::READ | FilePerms::WRITE);
+    }
+
+    #[test]
+    fn test_resolve_permission_list_only() {
+        let (d, f) = resolve_permission("list-only").unwrap();
+        assert_eq!(d, DirPerms::READ);
+        assert_eq!(f, FilePerms::empty());
+    }
+
+    #[test]
+    fn test_resolve_permission_private_scratch() {
+        let (d, f) = resolve_permission("private-scratch").unwrap();
+        assert_eq!(d, DirPerms::MUTATE);
+        assert_eq!(f, FilePerms::READ | FilePerms::WRITE);
+    }
+
+    #[test]
+    fn test_resolve_permission_unknown_rejected() {
+        assert!(resolve_permission("execute").is_err());
+        assert!(resolve_permission("admin").is_err());
+        assert!(resolve_permission("read").is_err());
+        assert!(resolve_permission("write").is_err());
+        assert!(resolve_permission("mutate").is_err());
+        assert!(resolve_permission("").is_err());
+    }
+
+    #[test]
+    fn test_resolve_permission_error_lists_valid_values() {
+        let err = resolve_permission("bogus").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("read-only"));
+        assert!(msg.contains("full-access"));
+        assert!(msg.contains("drop-box"));
+        assert!(msg.contains("fixed-mutable"));
+        assert!(msg.contains("list-only"));
+        assert!(msg.contains("private-scratch"));
+    }
+
+    #[test]
+    fn test_build_wasi_context_with_drop_box_permission() {
+        let policy = SandboxPolicy {
+            allowed_filesystem: vec![FilesystemRule {
+                dir: Some("/tmp".to_string()),
+                file: None,
+                permission: "drop-box".to_string(),
+            }],
+            ..Default::default()
+        };
+        assert!(build_wasi_context(Some(&policy)).is_ok());
+    }
+
+    #[test]
+    fn test_build_wasi_context_with_fixed_mutable_permission() {
+        let policy = SandboxPolicy {
+            allowed_filesystem: vec![FilesystemRule {
+                dir: Some("/tmp".to_string()),
+                file: None,
+                permission: "fixed-mutable".to_string(),
+            }],
+            ..Default::default()
+        };
+        assert!(build_wasi_context(Some(&policy)).is_ok());
+    }
+
+    #[test]
+    fn test_build_wasi_context_with_list_only_permission() {
+        let policy = SandboxPolicy {
+            allowed_filesystem: vec![FilesystemRule {
+                dir: Some("/tmp".to_string()),
+                file: None,
+                permission: "list-only".to_string(),
+            }],
+            ..Default::default()
+        };
+        assert!(build_wasi_context(Some(&policy)).is_ok());
+    }
+
+    #[test]
+    fn test_build_wasi_context_with_private_scratch_permission() {
+        let policy = SandboxPolicy {
+            allowed_filesystem: vec![FilesystemRule {
+                dir: Some("/tmp".to_string()),
+                file: None,
+                permission: "private-scratch".to_string(),
+            }],
+            ..Default::default()
+        };
+        assert!(build_wasi_context(Some(&policy)).is_ok());
     }
 }
