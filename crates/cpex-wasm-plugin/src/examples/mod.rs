@@ -1,7 +1,10 @@
-// Location: ./crates/cpex-wasm-plugin/src/plugins/mod.rs
+// Location: ./crates/cpex-wasm-plugin/src/examples/mod.rs
 // Copyright 2026
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya
+
+// Read this first — the simplest possible plugin (~40 lines)
+pub mod minimal_plugin;
 
 #[cfg(feature = "identity-checker")]
 pub mod identity_checker;

@@ -1,4 +1,4 @@
-// Location: ./crates/cpex-wasm-plugin/src/plugins/resource_test.rs
+// Location: ./crates/cpex-wasm-plugin/src/examples/resource_test.rs
 // Copyright 2026
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya
@@ -11,6 +11,8 @@
 //   "burn_fuel"    — tight loop consuming instructions until fuel is exhausted
 //   "infinite_loop" — spins forever until the epoch deadline fires
 //   "alloc_memory" — allocates 512 MB of heap in chunks until OOM
+
+#![cfg(feature = "resource-test")]
 
 use async_trait::async_trait;
 

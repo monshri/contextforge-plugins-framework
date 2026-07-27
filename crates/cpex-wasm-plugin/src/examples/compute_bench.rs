@@ -1,4 +1,4 @@
-// Location: ./crates/cpex-wasm-plugin/src/plugins/compute_bench.rs
+// Location: ./crates/cpex-wasm-plugin/src/examples/compute_bench.rs
 // Copyright 2025
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya
@@ -9,6 +9,8 @@
 // JSON parsing, string manipulation, and hash computation. The native
 // benchmark does the exact same operations so the comparison isolates
 // the runtime difference (not the workload difference).
+
+#![cfg(feature = "compute-bench")]
 
 use async_trait::async_trait;
 

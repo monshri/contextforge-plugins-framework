@@ -1,4 +1,4 @@
-// Location: ./crates/cpex-wasm-plugin/src/plugins/env_sandbox_demo.rs
+// Location: ./crates/cpex-wasm-plugin/src/examples/env_sandbox_demo.rs
 // Copyright 2026
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya
@@ -13,6 +13,8 @@
 // with the value stored in ctx. If the variable was not declared (or the host
 // does not have it set), std::env::var returns Err and the plugin returns DENY
 // with violation code "env_access_denied".
+
+#![cfg(feature = "env-sandbox-demo")]
 
 use async_trait::async_trait;
 

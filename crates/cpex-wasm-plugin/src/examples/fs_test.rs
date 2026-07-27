@@ -1,7 +1,9 @@
-// Location: ./crates/cpex-wasm-plugin/src/plugins/fs_test.rs
+// Location: ./crates/cpex-wasm-plugin/src/examples/fs_test.rs
 // Copyright 2026
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya
+
+#![cfg(feature = "fs-test")]
 
 use async_trait::async_trait;
 

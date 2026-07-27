@@ -2,7 +2,8 @@
 name = "cpex-wasm-plugin"
 version = "0.1.0"
 edition = "2021"
-description = "WASM plugin guest SDK for the CPEX framework — register_wasm_plugin! macro, type conversions, and demo plugins"
+description = "WASM plugin guest SDK for the CPEX framework — register_wasm_plugin! macro, prelude, and reference examples"
+publish = false
 license = "Apache-2.0"
 authors = ["Shriti Priya"]
 
@@ -10,7 +11,7 @@ authors = ["Shriti Priya"]
 crate-type = ["cdylib"]
 
 [features]
-default = ["identity-checker"]
+default = []
 identity-checker = []
 header-injector = []
 audit-logger = []

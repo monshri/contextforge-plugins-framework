@@ -1,18 +1,21 @@
-// Location: ./crates/cpex-wasm-plugin/src/plugins/audit_logger_custom.rs
+// Location: ./crates/cpex-wasm-plugin/src/examples/pii_guard.rs
 // Copyright 2025
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya
 //
-// AuditLoggerCustomPlugin — WASM audit logger for the custom payload demo.
+// PiiGuardPlugin — WASM plugin that blocks access to PII tools without clearance.
 //
-// Mirrors the native AuditLogger from plugin_demo.rs: logs all tool invocations
-// without blocking. Runs as fire_and_forget mode at priority 100.
+// Mirrors the native PiiGuard from plugin_demo.rs: checks that pii_clearance
+// is set in PluginContext global state before allowing PII-tagged tools.
+// Runs as priority 20 in the sequential pipeline.
+
+#![cfg(feature = "pii-guard")]
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use cpex_core::context::PluginContext;
-use cpex_core::error::PluginError;
+use cpex_core::error::{PluginError, PluginViolation};
 use cpex_core::extensions::container::Extensions;
 use cpex_core::hooks::trait_def::{HookHandler, HookTypeDef, PluginResult};
 use cpex_core::plugin::{Plugin, PluginConfig};
@@ -40,20 +43,13 @@ impl HookTypeDef for ToolPreInvoke {
     const NAME: &'static str = "tool_pre_invoke";
 }
 
-pub struct ToolPostInvoke;
-impl HookTypeDef for ToolPostInvoke {
-    type Payload = ToolInvokePayload;
-    type Result = PluginResult<ToolInvokePayload>;
-    const NAME: &'static str = "tool_post_invoke";
-}
-
 // ---------------------------------------------------------------------------
 // Plugin implementation
 // ---------------------------------------------------------------------------
 
-pub struct AuditLoggerCustomPlugin;
+pub struct PiiGuardPlugin;
 
-impl Default for AuditLoggerCustomPlugin {
+impl Default for PiiGuardPlugin {
     fn default() -> Self {
         Self
     }
@@ -62,12 +58,12 @@ impl Default for AuditLoggerCustomPlugin {
 static PLUGIN_CONFIG: std::sync::OnceLock<PluginConfig> = std::sync::OnceLock::new();
 
 #[async_trait]
-impl Plugin for AuditLoggerCustomPlugin {
+impl Plugin for PiiGuardPlugin {
     fn config(&self) -> &PluginConfig {
         PLUGIN_CONFIG.get_or_init(|| PluginConfig {
-            name: "audit-logger".to_string(),
-            kind: "wasm://audit-logger-custom.wasm".to_string(),
-            hooks: vec!["tool_pre_invoke".to_string(), "tool_post_invoke".to_string()],
+            name: "pii-guard".to_string(),
+            kind: "wasm://pii-guard.wasm".to_string(),
+            hooks: vec!["tool_pre_invoke".to_string()],
             ..Default::default()
         })
     }
@@ -81,37 +77,32 @@ impl Plugin for AuditLoggerCustomPlugin {
     }
 }
 
-impl HookHandler<ToolPreInvoke> for AuditLoggerCustomPlugin {
+impl HookHandler<ToolPreInvoke> for PiiGuardPlugin {
     async fn handle(
         &self,
         payload: &ToolInvokePayload,
         _extensions: &Extensions,
-        _ctx: &mut PluginContext,
+        ctx: &mut PluginContext,
     ) -> PluginResult<ToolInvokePayload> {
-        cpex_log!(
-            info,
-            "[audit-logger] LOG: user='{}' tool='{}' args='{}'",
-            payload.user,
-            payload.tool_name,
-            payload.arguments
-        );
-        PluginResult::allow()
-    }
-}
+        let has_clearance = ctx
+            .get_global("pii_clearance")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
 
-impl HookHandler<ToolPostInvoke> for AuditLoggerCustomPlugin {
-    async fn handle(
-        &self,
-        payload: &ToolInvokePayload,
-        _extensions: &Extensions,
-        _ctx: &mut PluginContext,
-    ) -> PluginResult<ToolInvokePayload> {
-        cpex_log!(
-            info,
-            "[audit-logger] LOG: post-invoke user='{}' tool='{}'",
-            payload.user,
-            payload.tool_name
-        );
+        if !has_clearance {
+            cpex_log!(
+                warn,
+                "[pii-guard] DENIED: user '{}' lacks PII clearance for '{}'",
+                payload.user,
+                payload.tool_name
+            );
+            return PluginResult::deny(PluginViolation::new(
+                "pii_access_denied",
+                "PII clearance required",
+            ));
+        }
+
+        cpex_log!(info, "[pii-guard] OK: user '{}' has PII clearance", payload.user);
         PluginResult::allow()
     }
 }
@@ -122,8 +113,8 @@ mod tests {
     use cpex_core::hooks::trait_def::HookHandler;
 
     #[tokio::test]
-    async fn test_always_allows() {
-        let plugin = AuditLoggerCustomPlugin;
+    async fn test_no_clearance_denied() {
+        let plugin = PiiGuardPlugin;
         let payload = ToolInvokePayload {
             tool_name: "get_compensation".into(),
             user: "alice".into(),
@@ -132,7 +123,27 @@ mod tests {
         let ext = Extensions::default();
         let mut ctx = PluginContext::default();
         let result: PluginResult<ToolInvokePayload> =
-            <AuditLoggerCustomPlugin as HookHandler<ToolPreInvoke>>::handle(
+            <PiiGuardPlugin as HookHandler<ToolPreInvoke>>::handle(
+                &plugin, &payload, &ext, &mut ctx,
+            )
+            .await;
+        assert!(!result.continue_processing);
+        assert_eq!(result.violation.as_ref().unwrap().code, "pii_access_denied");
+    }
+
+    #[tokio::test]
+    async fn test_with_clearance_allowed() {
+        let plugin = PiiGuardPlugin;
+        let payload = ToolInvokePayload {
+            tool_name: "get_compensation".into(),
+            user: "alice".into(),
+            arguments: "employee_id=42".into(),
+        };
+        let ext = Extensions::default();
+        let mut ctx = PluginContext::default();
+        ctx.set_global("pii_clearance", serde_json::Value::Bool(true));
+        let result: PluginResult<ToolInvokePayload> =
+            <PiiGuardPlugin as HookHandler<ToolPreInvoke>>::handle(
                 &plugin, &payload, &ext, &mut ctx,
             )
             .await;

@@ -1,4 +1,4 @@
-// Location: ./crates/cpex-wasm-plugin/src/plugins/tool_invoke_checker.rs
+// Location: ./crates/cpex-wasm-plugin/src/examples/tool_invoke_checker.rs
 // Copyright 2025
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya
@@ -8,6 +8,8 @@
 // Mirrors the native IdentityResolver from plugin_demo.rs: checks that a
 // user identity is present in the custom ToolInvokePayload. Runs as the
 // first plugin in the sequential pipeline (priority 10).
+
+#![cfg(feature = "tool-invoke-checker")]
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

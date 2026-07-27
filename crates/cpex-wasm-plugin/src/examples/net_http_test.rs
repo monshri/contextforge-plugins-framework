@@ -1,4 +1,4 @@
-// Location: ./crates/cpex-wasm-plugin/src/plugins/net_http_test.rs
+// Location: ./crates/cpex-wasm-plugin/src/examples/net_http_test.rs
 // Copyright 2026
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya
@@ -11,6 +11,8 @@
 // The plugin writes "http_result" into local_state:
 //   "allowed"  — request was sent (may or may not have received a response)
 //   "denied"   — WasiHttpHooks returned HttpRequestDenied before the wire
+
+#![cfg(feature = "net-http-test")]
 
 use async_trait::async_trait;
 

@@ -1,4 +1,4 @@
-// Location: ./crates/cpex-wasm-plugin/src/plugins/remote_authz.rs
+// Location: ./crates/cpex-wasm-plugin/src/examples/remote_authz.rs
 // Copyright 2025
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya
@@ -15,6 +15,8 @@
 // This is the WASM equivalent of the native plugin's `initialize()` + RwLock
 // pattern: the SandboxManager keeps the Store alive, so static variables in
 // the WASM module survive between calls.
+
+#![cfg(feature = "remote-authz")]
 
 use std::collections::HashSet;
 use std::sync::OnceLock;

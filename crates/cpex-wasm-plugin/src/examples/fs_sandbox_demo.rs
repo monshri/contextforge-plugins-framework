@@ -1,4 +1,4 @@
-// Location: ./crates/cpex-wasm-plugin/src/plugins/fs_sandbox_demo.rs
+// Location: ./crates/cpex-wasm-plugin/src/examples/fs_sandbox_demo.rs
 // Copyright 2026
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya
@@ -12,6 +12,8 @@
 // Attempts the operation using std::fs. If WASI denies it (the operation
 // exceeds the policy for that preopened dir), the error becomes a deny
 // violation. If it succeeds, the plugin allows with the result in ctx.
+
+#![cfg(feature = "fs-sandbox-demo")]
 
 use async_trait::async_trait;
 
