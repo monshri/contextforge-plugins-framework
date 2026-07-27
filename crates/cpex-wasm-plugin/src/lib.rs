@@ -392,6 +392,30 @@ register_wasm_plugin!(
     [cpex_core::cmf::CmfHook]
 );
 
+#[cfg(all(feature = "fs-sandbox-demo", not(test)))]
+register_wasm_plugin!(
+    plugins::fs_sandbox_demo::FsSandboxDemoPlugin,
+    [cpex_core::cmf::CmfHook]
+);
+
+#[cfg(all(feature = "env-sandbox-demo", not(test)))]
+register_wasm_plugin!(
+    plugins::env_sandbox_demo::EnvSandboxDemoPlugin,
+    [cpex_core::cmf::CmfHook]
+);
+
+#[cfg(all(feature = "resource-test", not(test)))]
+register_wasm_plugin!(
+    plugins::resource_test::ResourceTestPlugin,
+    [cpex_core::cmf::CmfHook]
+);
+
+#[cfg(all(feature = "net-http-test", not(test)))]
+register_wasm_plugin!(
+    plugins::net_http_test::NetHttpTestPlugin,
+    [cpex_core::cmf::CmfHook]
+);
+
 // ---------------------------------------------------------------------------
 // Unit tests — run natively with `cargo test`
 // ---------------------------------------------------------------------------

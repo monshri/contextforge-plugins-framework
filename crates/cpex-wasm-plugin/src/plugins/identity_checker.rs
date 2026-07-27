@@ -1,4 +1,4 @@
-// Location: ./crates/cpex-wasm-plugin/src/plugin.rs
+// Location: ./crates/cpex-wasm-plugin/src/plugins/identity_checker.rs
 // Copyright 2025
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya

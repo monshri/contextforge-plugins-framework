@@ -1,4 +1,4 @@
-// Location: ./crates/cpex-wasm-plugin/wit/world.wit
+// Location: ./crates/cpex-wasm-host/wit/world.wit
 // Copyright 2025
 // SPDX-License-Identifier: Apache-2.0
 // Authors: Shriti Priya

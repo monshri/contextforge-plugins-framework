@@ -1,4 +1,4 @@
-.PHONY: all build build-debug release stage validate inspect clean check fmt clippy run-demo run-all-demos help
+.PHONY: all build build-debug release build-all stage validate inspect check fmt clippy clean help
 
 TARGET        := wasm32-wasip2
 TARGET_DIR    := target
@@ -10,8 +10,10 @@ STAGED        := $(HOST_WASM_DIR)/plugin.wasm
 PROFILE       := release
 ARTIFACT       = $(TARGET_DIR)/$(TARGET)/$(PROFILE)/$(PLUGIN_NAME).wasm
 
-# Plugin features (one binary per feature)
-PLUGINS       := identity-checker header-injector audit-logger tool-invoke-checker pii-guard audit-logger-custom remote-authz
+# Demo plugin list — must stay in sync with DEMO_PLUGINS in cpex-wasm-host/Makefile.
+# One binary is compiled per feature, then staged to HOST_WASM_DIR.
+PLUGINS       := identity-checker header-injector audit-logger token-attenuator \
+                 tool-invoke-checker pii-guard audit-logger-custom remote-authz
 
 # ---------------------------------------------------------------------------
 # Build targets
@@ -29,7 +31,7 @@ build-debug: ## Build the default plugin (debug, faster compile)
 release: ## Build the default plugin (release, optimized)
 	$(MAKE) build PROFILE=release
 
-build-all: ## Build all plugin binaries and stage to host wasm/ directory
+build-all: ## Build all demo plugin binaries and stage to host wasm/ directory
 	@mkdir -p $(HOST_WASM_DIR)
 	@for plugin in $(PLUGINS); do \
 		echo "Building $$plugin..."; \
@@ -75,17 +77,6 @@ fmt: ## Format source code
 
 clippy: ## Run clippy lints for the wasm target
 	cargo clippy --target $(TARGET) -- -D warnings
-
-# ---------------------------------------------------------------------------
-# Run demos (from workspace root via the host crate)
-# ---------------------------------------------------------------------------
-
-run-demo: all ## Build, stage, and run the plugin demo
-	cd ../.. && cargo run -p cpex-wasm-host --example wasm_plugin_demo
-
-run-all-demos: build-all ## Build all plugins and run both demos
-	cd ../.. && cargo run -p cpex-wasm-host --example wasm_plugin_demo
-	cd ../.. && cargo run -p cpex-wasm-host --example wasm_capabilities_demo
 
 # ---------------------------------------------------------------------------
 # Cleanup

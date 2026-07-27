@@ -41,3 +41,16 @@ pub mod audit_logger_custom;
 
 #[cfg(feature = "remote-authz")]
 pub mod remote_authz;
+
+#[cfg(feature = "fs-sandbox-demo")]
+pub mod fs_sandbox_demo;
+
+#[cfg(feature = "env-sandbox-demo")]
+pub mod env_sandbox_demo;
+
+#[cfg(feature = "resource-test")]
+pub mod resource_test;
+
+#[cfg(feature = "net-http-test")]
+pub mod net_http_test;
+

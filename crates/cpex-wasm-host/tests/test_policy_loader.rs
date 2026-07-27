@@ -107,3 +107,4 @@ fn sandbox_policy_deserializes_to_same_type_used_by_factory() {
         policy.resources.max_memory_bytes
     );
 }
+
